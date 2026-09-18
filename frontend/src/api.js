@@ -30,3 +30,19 @@ export function logout() {
 export function fetchMe() {
   return request('/auth/me');
 }
+
+export function listClients() {
+  return request('/clients');
+}
+
+export function createClient(payload) {
+  return request('/clients', { method: 'POST', body: JSON.stringify(payload) });
+}
+
+export function updateClient(id, payload) {
+  return request(`/clients/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+}
+
+export function deleteClient(id) {
+  return request(`/clients/${id}`, { method: 'DELETE' });
+}
