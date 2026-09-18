@@ -6,10 +6,13 @@ const stripe = require('../stripe');
 const router = express.Router();
 
 async function updateFromSubscription(subscription) {
+  // Dans les versions récentes de l'API Stripe, la fin de période est sur chaque ligne (item).
+  const periodEnd = subscription.items?.data?.[0]?.current_period_end ?? subscription.current_period_end ?? null;
   await pool.query(
-    `UPDATE users SET stripe_subscription_id = $1, subscription_status = $2, current_period_end = to_timestamp($3)
+    `UPDATE users SET stripe_subscription_id = $1, subscription_status = $2,
+       current_period_end = CASE WHEN $3::bigint IS NULL THEN NULL ELSE to_timestamp($3::bigint) END
      WHERE stripe_customer_id = $4`,
-    [subscription.id, subscription.status, subscription.current_period_end, subscription.customer]
+    [subscription.id, subscription.status, periodEnd, subscription.customer]
   );
 }
 
@@ -34,6 +37,7 @@ router.post('/', asyncHandler(async (req, res) => {
       }
       break;
     }
+    case 'customer.subscription.created':
     case 'customer.subscription.updated':
     case 'customer.subscription.deleted': {
       await updateFromSubscription(event.data.object);
