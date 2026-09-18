@@ -1,6 +1,6 @@
-# Freelance SaaS — Facturation & confirmation d'accords
+# Accordly — Facturation & confirmation d'accords
 
-Application pour freelances : gestion clients, accords avec confirmation par email, factures PDF, tableau de bord, abonnement Stripe (20€/mois, essai 14 jours).
+Application pour freelances (domaine prévu : accordly.fr) : gestion clients, accords avec confirmation par email, factures PDF conformes et avoirs, tableau de bord, abonnement Stripe (20€/mois, essai 14 jours).
 
 ## Stack
 - **Frontend** : React (Vite)
@@ -11,16 +11,19 @@ Application pour freelances : gestion clients, accords avec confirmation par ema
 ## Structure
 ```
 backend/   API Express (routes, connexion DB)
-frontend/  Application React (à venir)
+frontend/  Application React (Vite)
+render.yaml  Description du déploiement sur Render
 ```
 
-## Démarrer le backend en local
+## Démarrer en local
 ```bash
-cd backend
-npm install
-npm run dev
+cd backend && npm install && npm run migrate && npm run dev
 ```
-Le serveur écoute sur http://localhost:4000 — vérifier avec http://localhost:4000/api/health.
+```bash
+cd frontend && npm install && npm run dev
+```
+Le serveur écoute sur http://localhost:4000 (vérifier avec /api/health), l'application sur http://localhost:5173.
+Copier `backend/.env.example` en `backend/.env` et `frontend/.env.example` en `frontend/.env`, puis renseigner les valeurs.
 
 ## Base de données locale
 - Base : `freelance_saas`
