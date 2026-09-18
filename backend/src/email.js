@@ -1,13 +1,22 @@
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'onboarding@resend.dev';
 
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 async function sendAgreementConfirmationEmail({ to, freelanceName, clientName, title, amount, confirmUrl }) {
   const subject = `${freelanceName} vous demande de confirmer : ${title}`;
-  const amountLine = amount ? `<p><strong>Montant :</strong> ${amount} €</p>` : '';
+  const amountLine = amount ? `<p><strong>Montant :</strong> ${escapeHtml(amount)} €</p>` : '';
   const html = `
-    <p>Bonjour ${clientName},</p>
-    <p>${freelanceName} vous propose l'accord suivant :</p>
-    <h3>${title}</h3>
+    <p>Bonjour ${escapeHtml(clientName)},</p>
+    <p>${escapeHtml(freelanceName)} vous propose l'accord suivant :</p>
+    <h3>${escapeHtml(title)}</h3>
     ${amountLine}
     <p>Merci de cliquer sur le lien ci-dessous pour confirmer votre accord :</p>
     <p><a href="${confirmUrl}">${confirmUrl}</a></p>

@@ -4,13 +4,14 @@ const jwt = require('jsonwebtoken');
 const pool = require('../db');
 const requireAuth = require('../middleware/auth');
 const asyncHandler = require('../asyncHandler');
+const { loginLimiter, registerLimiter } = require('../middleware/rateLimit');
 
 const router = express.Router();
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
   sameSite: 'lax',
-  secure: false, // à mettre à true une fois en production (HTTPS)
+  secure: process.env.NODE_ENV === 'production', // HTTPS obligatoire en production
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
 };
 
@@ -18,7 +19,7 @@ function makeToken(userId) {
   return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '7d' });
 }
 
-router.post('/register', async (req, res) => {
+router.post('/register', registerLimiter, async (req, res) => {
   const { email, password, fullName } = req.body;
 
   if (!email || !password) {
@@ -50,7 +51,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
     return res.status(400).json({ message: 'Email et mot de passe requis' });

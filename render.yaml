@@ -1,0 +1,60 @@
+# Description de l'infrastructure pour Render (https://render.com/docs/blueprint-spec).
+# Les variables marquées "sync: false" sont demandées une par une à la création
+# et ne sont jamais stockées dans ce fichier (ce sont des secrets).
+# Les offres (plans) sont volontairement omises : Render applique ses offres d'entrée
+# de gamme par défaut, modifiables ensuite dans leur tableau de bord.
+
+databases:
+  - name: freelance-db
+    databaseName: freelance_saas
+    user: freelance_app
+    region: frankfurt
+
+services:
+  # Backend (API Express)
+  - name: freelance-api
+    type: web
+    runtime: node
+    region: frankfurt
+    rootDir: backend
+    buildCommand: npm ci
+    startCommand: npm run migrate && npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: freelance-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_PRICE_ID
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+
+  # Frontend (site React, fichiers statiques)
+  - name: freelance-app
+    type: web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        sync: false
+    routes:
+      # Sans cette règle, ouvrir directement /confirm/xxx (lien reçu par email)
+      # ou rafraîchir /dashboard donnerait une erreur 404.
+      - type: rewrite
+        source: /*
+        destination: /index.html
