@@ -102,3 +102,7 @@ export function markInvoicePending(id) {
 export function invoicePdfUrl(id) {
   return `${API_URL}/invoices/${id}/pdf`;
 }
+
+export function getDashboardSummary() {
+  return request('/dashboard/summary');
+}

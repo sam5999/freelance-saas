@@ -8,6 +8,7 @@ const clientsRoutes = require('./routes/clients');
 const agreementsRoutes = require('./routes/agreements');
 const agreementsPublicRoutes = require('./routes/agreementsPublic');
 const invoicesRoutes = require('./routes/invoices');
+const dashboardRoutes = require('./routes/dashboard');
 
 const app = express();
 app.use(cors({ origin: process.env.FRONTEND_URL, credentials: true }));
@@ -19,6 +20,7 @@ app.use('/api/clients', clientsRoutes);
 app.use('/api/agreements', agreementsRoutes);
 app.use('/api/public/agreements', agreementsPublicRoutes);
 app.use('/api/invoices', invoicesRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 app.get('/api/health', async (req, res) => {
   try {
