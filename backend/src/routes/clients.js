@@ -1,19 +1,20 @@
 const express = require('express');
 const pool = require('../db');
 const requireAuth = require('../middleware/auth');
+const asyncHandler = require('../asyncHandler');
 
 const router = express.Router();
 router.use(requireAuth);
 
-router.get('/', async (req, res) => {
+router.get('/', asyncHandler(async (req, res) => {
   const result = await pool.query(
     'SELECT id, name, email, company, phone, created_at FROM clients WHERE user_id = $1 ORDER BY created_at DESC',
     [req.userId]
   );
   res.json({ clients: result.rows });
-});
+}));
 
-router.post('/', async (req, res) => {
+router.post('/', asyncHandler(async (req, res) => {
   const { name, email, company, phone } = req.body;
   if (!name || !name.trim()) {
     return res.status(400).json({ message: 'Le nom du client est requis' });
@@ -24,9 +25,9 @@ router.post('/', async (req, res) => {
     [req.userId, name.trim(), email || null, company || null, phone || null]
   );
   res.status(201).json({ client: result.rows[0] });
-});
+}));
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', asyncHandler(async (req, res) => {
   const { name, email, company, phone } = req.body;
   if (!name || !name.trim()) {
     return res.status(400).json({ message: 'Le nom du client est requis' });
@@ -40,9 +41,9 @@ router.put('/:id', async (req, res) => {
     return res.status(404).json({ message: 'Client introuvable' });
   }
   res.json({ client: result.rows[0] });
-});
+}));
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', asyncHandler(async (req, res) => {
   const result = await pool.query('DELETE FROM clients WHERE id = $1 AND user_id = $2 RETURNING id', [
     req.params.id,
     req.userId,
@@ -51,6 +52,6 @@ router.delete('/:id', async (req, res) => {
     return res.status(404).json({ message: 'Client introuvable' });
   }
   res.status(204).send();
-});
+}));
 
 module.exports = router;

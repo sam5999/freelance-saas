@@ -14,9 +14,10 @@ export default function Dashboard() {
       <nav className="dashboard-nav">
         <Link to="/clients">Mes clients</Link>
         <Link to="/agreements">Mes accords</Link>
+        <Link to="/invoices">Mes factures</Link>
       </nav>
       <p className="muted">
-        Les factures arriveront ici dans les prochaines étapes.
+        Un résumé de ton activité arrivera ici à la prochaine étape.
       </p>
     </div>
   );

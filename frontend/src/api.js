@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL;
+export const API_URL = import.meta.env.VITE_API_URL;
 
 async function request(path, options = {}) {
   const res = await fetch(`${API_URL}${path}`, {
@@ -73,4 +73,32 @@ export function getPublicAgreement(token) {
 
 export function confirmPublicAgreement(token) {
   return request(`/public/agreements/${token}/confirm`, { method: 'POST' });
+}
+
+export function listInvoices() {
+  return request('/invoices');
+}
+
+export function createInvoice(payload) {
+  return request('/invoices', { method: 'POST', body: JSON.stringify(payload) });
+}
+
+export function updateInvoice(id, payload) {
+  return request(`/invoices/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+}
+
+export function deleteInvoice(id) {
+  return request(`/invoices/${id}`, { method: 'DELETE' });
+}
+
+export function markInvoicePaid(id) {
+  return request(`/invoices/${id}/mark-paid`, { method: 'POST' });
+}
+
+export function markInvoicePending(id) {
+  return request(`/invoices/${id}/mark-pending`, { method: 'POST' });
+}
+
+export function invoicePdfUrl(id) {
+  return `${API_URL}/invoices/${id}/pdf`;
 }

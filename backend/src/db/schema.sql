@@ -37,3 +37,23 @@ CREATE TABLE IF NOT EXISTS agreements (
 
 CREATE INDEX IF NOT EXISTS idx_agreements_user_id ON agreements(user_id);
 CREATE INDEX IF NOT EXISTS idx_agreements_client_id ON agreements(client_id);
+
+-- Table des factures (manuelles ou issues d'un accord)
+CREATE TABLE IF NOT EXISTS invoices (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  agreement_id INTEGER REFERENCES agreements(id) ON DELETE SET NULL,
+  invoice_number VARCHAR(50) NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  description TEXT,
+  amount NUMERIC(10,2) NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'pending', -- pending | paid
+  due_date DATE,
+  paid_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (user_id, invoice_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_invoices_user_id ON invoices(user_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_client_id ON invoices(client_id);

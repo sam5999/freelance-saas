@@ -1,9 +1,10 @@
 const express = require('express');
 const pool = require('../db');
+const asyncHandler = require('../asyncHandler');
 
 const router = express.Router();
 
-router.get('/:token', async (req, res) => {
+router.get('/:token', asyncHandler(async (req, res) => {
   const result = await pool.query(
     `SELECT a.title, a.description, a.amount, a.status, a.confirmed_at,
             c.name AS client_name,
@@ -19,9 +20,9 @@ router.get('/:token', async (req, res) => {
     return res.status(404).json({ message: 'Accord introuvable ou lien invalide' });
   }
   res.json({ agreement });
-});
+}));
 
-router.post('/:token/confirm', async (req, res) => {
+router.post('/:token/confirm', asyncHandler(async (req, res) => {
   const existing = await pool.query('SELECT id, status FROM agreements WHERE confirmation_token = $1', [
     req.params.token,
   ]);
@@ -36,6 +37,6 @@ router.post('/:token/confirm', async (req, res) => {
     ]);
   }
   res.status(204).send();
-});
+}));
 
 module.exports = router;

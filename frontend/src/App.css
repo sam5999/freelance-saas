@@ -194,6 +194,26 @@ button.link.danger {
   font-size: 14px;
 }
 
+.summary-row {
+  display: flex;
+  gap: 16px;
+  margin: 16px 0;
+}
+
+.summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 18px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-width: 140px;
+}
+
+.summary-card strong {
+  font-size: 22px;
+}
+
 .centered {
   text-align: center;
   margin-top: 40px;

@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const pool = require('../db');
 const requireAuth = require('../middleware/auth');
+const asyncHandler = require('../asyncHandler');
 
 const router = express.Router();
 
@@ -81,13 +82,13 @@ router.post('/logout', (req, res) => {
   res.status(204).send();
 });
 
-router.get('/me', requireAuth, async (req, res) => {
+router.get('/me', requireAuth, asyncHandler(async (req, res) => {
   const result = await pool.query('SELECT id, email, full_name FROM users WHERE id = $1', [req.userId]);
   const user = result.rows[0];
   if (!user) {
     return res.status(404).json({ message: 'Utilisateur introuvable' });
   }
   res.json({ user: { id: user.id, email: user.email, fullName: user.full_name } });
-});
+}));
 
 module.exports = router;

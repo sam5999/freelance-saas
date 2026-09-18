@@ -2,12 +2,13 @@ const express = require('express');
 const crypto = require('crypto');
 const pool = require('../db');
 const requireAuth = require('../middleware/auth');
+const asyncHandler = require('../asyncHandler');
 const { sendAgreementConfirmationEmail } = require('../email');
 
 const router = express.Router();
 router.use(requireAuth);
 
-router.get('/', async (req, res) => {
+router.get('/', asyncHandler(async (req, res) => {
   const result = await pool.query(
     `SELECT a.id, a.title, a.description, a.amount, a.status, a.confirmation_token,
             a.sent_at, a.confirmed_at, a.created_at,
@@ -19,9 +20,9 @@ router.get('/', async (req, res) => {
     [req.userId]
   );
   res.json({ agreements: result.rows });
-});
+}));
 
-router.post('/', async (req, res) => {
+router.post('/', asyncHandler(async (req, res) => {
   const { clientId, title, description, amount } = req.body;
   if (!clientId || !title || !title.trim()) {
     return res.status(400).json({ message: 'Le client et le titre sont requis' });
@@ -38,9 +39,9 @@ router.post('/', async (req, res) => {
     [req.userId, clientId, title.trim(), description || null, amount || null]
   );
   res.status(201).json({ agreement: result.rows[0] });
-});
+}));
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', asyncHandler(async (req, res) => {
   const { title, description, amount } = req.body;
   if (!title || !title.trim()) {
     return res.status(400).json({ message: 'Le titre est requis' });
@@ -63,9 +64,9 @@ router.put('/:id', async (req, res) => {
     [title.trim(), description || null, amount || null, req.params.id, req.userId]
   );
   res.json({ agreement: result.rows[0] });
-});
+}));
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', asyncHandler(async (req, res) => {
   const result = await pool.query('DELETE FROM agreements WHERE id = $1 AND user_id = $2 RETURNING id', [
     req.params.id,
     req.userId,
@@ -74,9 +75,9 @@ router.delete('/:id', async (req, res) => {
     return res.status(404).json({ message: 'Accord introuvable' });
   }
   res.status(204).send();
-});
+}));
 
-router.post('/:id/send', async (req, res) => {
+router.post('/:id/send', asyncHandler(async (req, res) => {
   const result = await pool.query(
     `SELECT a.id, a.title, a.description, a.amount, a.status, a.confirmation_token,
             c.name AS client_name, c.email AS client_email,
@@ -101,14 +102,19 @@ router.post('/:id/send', async (req, res) => {
   const token = agreement.confirmation_token || crypto.randomBytes(24).toString('hex');
   const confirmUrl = `${process.env.FRONTEND_URL}/confirm/${token}`;
 
-  await sendAgreementConfirmationEmail({
-    to: agreement.client_email,
-    freelanceName: agreement.freelance_name || agreement.freelance_email,
-    clientName: agreement.client_name,
-    title: agreement.title,
-    amount: agreement.amount,
-    confirmUrl,
-  });
+  try {
+    await sendAgreementConfirmationEmail({
+      to: agreement.client_email,
+      freelanceName: agreement.freelance_name || agreement.freelance_email,
+      clientName: agreement.client_name,
+      title: agreement.title,
+      amount: agreement.amount,
+      confirmUrl,
+    });
+  } catch (err) {
+    console.error("Échec de l'envoi de l'email :", err.message);
+    return res.status(502).json({ message: "L'envoi de l'email a échoué : " + err.message });
+  }
 
   const updated = await pool.query(
     `UPDATE agreements SET confirmation_token = $1, status = 'sent', sent_at = now()
@@ -116,6 +122,6 @@ router.post('/:id/send', async (req, res) => {
     [token, agreement.id]
   );
   res.json({ agreement: updated.rows[0] });
-});
+}));
 
 module.exports = router;
