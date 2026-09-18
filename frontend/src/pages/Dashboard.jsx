@@ -41,6 +41,7 @@ export default function Dashboard() {
         <Link to="/clients">Mes clients</Link>
         <Link to="/agreements">Mes accords</Link>
         <Link to="/invoices">Mes factures</Link>
+        <Link to="/profile">Mon profil</Link>
         <Link to="/subscribe">Abonnement</Link>
       </nav>
 

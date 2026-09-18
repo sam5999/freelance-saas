@@ -13,7 +13,7 @@ router.get('/summary', asyncHandler(async (req, res) => {
     pool.query('SELECT COUNT(*) FROM clients WHERE user_id = $1', [req.userId]),
     pool.query('SELECT status, COUNT(*) FROM agreements WHERE user_id = $1 GROUP BY status', [req.userId]),
     pool.query(
-      `SELECT status, COUNT(*) AS count, COALESCE(SUM(amount), 0) AS total
+      `SELECT status, COUNT(*) AS count, COALESCE(SUM(ROUND(amount * (1 + vat_rate / 100), 2)), 0) AS total
        FROM invoices WHERE user_id = $1 GROUP BY status`,
       [req.userId]
     ),

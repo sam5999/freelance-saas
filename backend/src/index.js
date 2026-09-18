@@ -31,6 +31,7 @@ const agreementsRoutes = require('./routes/agreements');
 const agreementsPublicRoutes = require('./routes/agreementsPublic');
 const invoicesRoutes = require('./routes/invoices');
 const dashboardRoutes = require('./routes/dashboard');
+const profileRoutes = require('./routes/profile');
 const subscriptionRoutes = require('./routes/subscription');
 const subscriptionWebhookRoutes = require('./routes/subscriptionWebhook');
 
@@ -52,6 +53,7 @@ app.use(cookieParser());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/subscription', subscriptionRoutes);
+app.use('/api/profile', profileRoutes);
 app.use('/api/clients', clientsRoutes);
 app.use('/api/agreements', agreementsRoutes);
 app.use('/api/public/agreements', agreementsPublicRoutes);

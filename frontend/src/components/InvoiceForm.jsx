@@ -1,12 +1,33 @@
 import { useState } from 'react';
 
-const EMPTY = { agreementId: '', clientId: '', title: '', description: '', amount: '', dueDate: '' };
+const VAT_RATES = [20, 10, 5.5, 2.1, 8.5, 1.05];
 
-export default function InvoiceForm({ clients, agreements, initialValues, onSubmit, onCancel }) {
+function formatRate(rate) {
+  return String(rate).replace('.', ',');
+}
+
+export default function InvoiceForm({ clients, agreements, profile, initialValues, onSubmit, onCancel }) {
   const isEditing = Boolean(initialValues);
-  const [form, setForm] = useState(initialValues || EMPTY);
+  const [form, setForm] = useState(
+    initialValues || {
+      agreementId: '',
+      clientId: '',
+      title: '',
+      description: '',
+      amount: '',
+      vatRate: profile?.defaultVatRate ?? 20,
+      serviceDate: '',
+      dueDate: '',
+    }
+  );
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Le taux de TVA n'est proposé que si le freelance est assujetti à la TVA.
+  const showVat = (isEditing ? initialValues.vatRegime : profile?.vatRegime) === 'subject';
+  const ht = Number(form.amount) || 0;
+  const rate = showVat ? Number(form.vatRate) : 0;
+  const ttc = Math.round(ht * (1 + rate / 100) * 100) / 100;
 
   function handleAgreementChange(value) {
     if (!value) {
@@ -75,7 +96,7 @@ export default function InvoiceForm({ clients, agreements, initialValues, onSubm
       )}
 
       <label>
-        Titre *
+        Désignation de la prestation *
         <input
           type="text"
           required
@@ -84,7 +105,7 @@ export default function InvoiceForm({ clients, agreements, initialValues, onSubm
         />
       </label>
       <label>
-        Description
+        Détail (optionnel)
         <textarea
           rows={3}
           value={form.description || ''}
@@ -92,21 +113,47 @@ export default function InvoiceForm({ clients, agreements, initialValues, onSubm
         />
       </label>
       <label>
-        Montant (€) *
+        Montant HT (€) *
         <input
           type="number"
           step="0.01"
-          min="0"
+          min="0.01"
           required
           value={form.amount || ''}
           onChange={(e) => setForm({ ...form, amount: e.target.value })}
         />
       </label>
+
+      {showVat && (
+        <label>
+          Taux de TVA
+          <select value={form.vatRate} onChange={(e) => setForm({ ...form, vatRate: Number(e.target.value) })}>
+            {VAT_RATES.map((r) => (
+              <option key={r} value={r}>
+                {formatRate(r)} %
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
+      <p className="muted" style={{ margin: 0 }}>
+        {showVat ? `Total TTC : ${ttc.toFixed(2)} €` : `Total : ${ttc.toFixed(2)} € (TVA non applicable)`}
+      </p>
+
       <label>
-        Échéance de paiement
+        Date de la prestation (si différente de la date d'émission)
         <input
           type="date"
-          value={form.dueDate ? form.dueDate.substring(0, 10) : ''}
+          value={form.serviceDate || ''}
+          onChange={(e) => setForm({ ...form, serviceDate: e.target.value })}
+        />
+      </label>
+      <label>
+        Date d'échéance de paiement
+        <input
+          type="date"
+          value={form.dueDate || ''}
           onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
         />
       </label>

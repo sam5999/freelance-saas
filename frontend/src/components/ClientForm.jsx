@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-const EMPTY = { name: '', email: '', company: '', phone: '' };
+const EMPTY = { name: '', email: '', company: '', phone: '', address: '', siret: '' };
 
 export default function ClientForm({ initialValues, onSubmit, onCancel }) {
   const [form, setForm] = useState(initialValues || EMPTY);
@@ -54,6 +54,23 @@ export default function ClientForm({ initialValues, onSubmit, onCancel }) {
           type="tel"
           value={form.phone || ''}
           onChange={(e) => setForm({ ...form, phone: e.target.value })}
+        />
+      </label>
+      <label>
+        Adresse de facturation (obligatoire pour facturer)
+        <textarea
+          rows={3}
+          value={form.address || ''}
+          onChange={(e) => setForm({ ...form, address: e.target.value })}
+        />
+      </label>
+      <label>
+        SIREN ou SIRET (si le client est une entreprise)
+        <input
+          type="text"
+          inputMode="numeric"
+          value={form.siret || ''}
+          onChange={(e) => setForm({ ...form, siret: e.target.value })}
         />
       </label>
       <div className="form-actions">

@@ -7,6 +7,8 @@ export default function Invoices() {
   const [invoices, setInvoices] = useState([]);
   const [clients, setClients] = useState([]);
   const [agreements, setAgreements] = useState([]);
+  const [profile, setProfile] = useState(null);
+  const [missingFields, setMissingFields] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -20,14 +22,17 @@ export default function Invoices() {
   async function loadData() {
     setLoading(true);
     try {
-      const [invoicesData, clientsData, agreementsData] = await Promise.all([
+      const [invoicesData, clientsData, agreementsData, profileData] = await Promise.all([
         api.listInvoices(),
         api.listClients(),
         api.listAgreements(),
+        api.getProfile(),
       ]);
       setInvoices(invoicesData.invoices);
       setClients(clientsData.clients);
       setAgreements(agreementsData.agreements.filter((a) => a.status === 'confirmed'));
+      setProfile(profileData.profile);
+      setMissingFields(profileData.missingFields);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -46,6 +51,9 @@ export default function Invoices() {
       title: invoice.title,
       description: invoice.description,
       amount: invoice.amount,
+      vatRate: Number(invoice.vat_rate),
+      vatRegime: invoice.vat_regime,
+      serviceDate: invoice.service_date,
       dueDate: invoice.due_date,
     });
     setEditingId(invoice.id);
@@ -71,20 +79,30 @@ export default function Invoices() {
 
   async function handleDelete(invoice) {
     if (!window.confirm(`Supprimer la facture ${invoice.invoice_number} ?`)) return;
-    await api.deleteInvoice(invoice.id);
-    setInvoices((prev) => prev.filter((i) => i.id !== invoice.id));
+    setError('');
+    try {
+      await api.deleteInvoice(invoice.id);
+      setInvoices((prev) => prev.filter((i) => i.id !== invoice.id));
+    } catch (err) {
+      setError(err.message);
+    }
   }
 
   async function togglePaid(invoice) {
-    const data =
-      invoice.status === 'paid' ? await api.markInvoicePending(invoice.id) : await api.markInvoicePaid(invoice.id);
-    setInvoices((prev) => prev.map((i) => (i.id === invoice.id ? { ...i, ...data.invoice } : i)));
+    setError('');
+    try {
+      const data =
+        invoice.status === 'paid' ? await api.markInvoicePending(invoice.id) : await api.markInvoicePaid(invoice.id);
+      setInvoices((prev) => prev.map((i) => (i.id === invoice.id ? { ...i, ...data.invoice } : i)));
+    } catch (err) {
+      setError(err.message);
+    }
   }
 
   const pending = invoices.filter((i) => i.status === 'pending');
   const paid = invoices.filter((i) => i.status === 'paid');
-  const pendingTotal = pending.reduce((sum, i) => sum + Number(i.amount), 0);
-  const paidTotal = paid.reduce((sum, i) => sum + Number(i.amount), 0);
+  const pendingTotal = pending.reduce((sum, i) => sum + Number(i.total_ttc), 0);
+  const paidTotal = paid.reduce((sum, i) => sum + Number(i.total_ttc), 0);
 
   return (
     <div className="page">
@@ -116,12 +134,22 @@ export default function Invoices() {
         </p>
       )}
 
-      {!showForm && clients.length > 0 && <button onClick={openAddForm}>+ Nouvelle facture</button>}
+      {!loading && missingFields.length > 0 && (
+        <p className="error">
+          Pour émettre une facture conforme, complète d'abord <Link to="/profile">ton profil</Link> :{' '}
+          {missingFields.join(', ')}.
+        </p>
+      )}
+
+      {!showForm && clients.length > 0 && missingFields.length === 0 && (
+        <button onClick={openAddForm}>+ Nouvelle facture</button>
+      )}
 
       {showForm && (
         <InvoiceForm
           clients={clients}
           agreements={agreements}
+          profile={profile}
           initialValues={editingInvoice}
           onSubmit={handleSubmit}
           onCancel={closeForm}
@@ -139,7 +167,7 @@ export default function Invoices() {
               <th>Numéro</th>
               <th>Client</th>
               <th>Titre</th>
-              <th>Montant</th>
+              <th>Total TTC</th>
               <th>Statut</th>
               <th></th>
             </tr>
@@ -150,7 +178,7 @@ export default function Invoices() {
                 <td>{invoice.invoice_number}</td>
                 <td>{invoice.client_name}</td>
                 <td>{invoice.title}</td>
-                <td>{Number(invoice.amount).toFixed(2)} €</td>
+                <td>{Number(invoice.total_ttc).toFixed(2)} €</td>
                 <td>
                   <span className={`badge badge-${invoice.status === 'paid' ? 'confirmed' : 'sent'}`}>
                     {invoice.status === 'paid' ? 'Payée' : 'En attente'}

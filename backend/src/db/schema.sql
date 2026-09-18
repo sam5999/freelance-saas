@@ -69,3 +69,29 @@ CREATE TABLE IF NOT EXISTS invoices (
 
 CREATE INDEX IF NOT EXISTS idx_invoices_user_id ON invoices(user_id);
 CREATE INDEX IF NOT EXISTS idx_invoices_client_id ON invoices(client_id);
+
+-- Mentions légales des factures
+-- Identité légale du freelance (émetteur des factures)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS business_name VARCHAR(255);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS legal_form VARCHAR(20);        -- EI | EURL | SASU | SARL | SAS | AUTRE
+ALTER TABLE users ADD COLUMN IF NOT EXISTS address TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS siret VARCHAR(14);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS share_capital VARCHAR(50);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS vat_regime VARCHAR(20);      -- franchise | subject
+ALTER TABLE users ADD COLUMN IF NOT EXISTS vat_number VARCHAR(30);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS default_vat_rate NUMERIC(5,2) NOT NULL DEFAULT 20;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS vat_on_debits BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS payment_info TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS legal_notes TEXT;
+
+-- Adresse et SIREN du client (obligatoires sur la facture)
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS address TEXT;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS siret VARCHAR(14);
+
+-- TVA, date de prestation, et copie figée de l'émetteur et du client au moment de l'émission
+-- (une facture émise ne doit pas changer si le profil est modifié plus tard). "amount" = montant HT.
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS vat_rate NUMERIC(5,2) NOT NULL DEFAULT 0;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS service_date DATE;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS seller_info JSONB;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS client_info JSONB;
