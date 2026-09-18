@@ -12,7 +12,10 @@ function formatDate(date) {
 // Format français ("1 500,00 €"). Les espaces insécables sont remplacés par des espaces
 // simples car la police standard des PDF ne sait pas les afficher.
 function money(cents) {
-  return (cents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }).replace(/[  ]/g, ' ');
+  return (cents / 100)
+    .toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
+    .replace(/[  ]/g, ' ')
+    .replace(/−/g, '-');
 }
 
 function formatSiret(siret) {
@@ -66,7 +69,9 @@ function ensureSpace(doc, height) {
   if (doc.y + height > doc.page.height - doc.page.margins.bottom) doc.addPage();
 }
 
-function generateInvoicePdf({ invoice, seller, client }) {
+// Génère le PDF d'une facture ou d'un avoir (invoice.type === 'credit_note').
+// "original" = facture d'origine ({ number, date }), pour les avoirs.
+function generateInvoicePdf({ invoice, seller, client, original }) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
     const chunks = [];
@@ -74,30 +79,39 @@ function generateInvoicePdf({ invoice, seller, client }) {
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
+    const isCredit = invoice.type === 'credit_note';
+    // Un avoir vient en déduction : ses montants sont affichés en négatif.
+    const sign = isCredit ? -1 : 1;
     const rate = Number(invoice.vat_rate);
     const isSubject = seller.vatRegime === 'subject';
     const htCents = Math.round(Number(invoice.amount) * 100);
     const vatCents = Math.round((htCents * rate) / 100);
     const ttcCents = htCents + vatCents;
+    const issueDate = invoice.issued_at || invoice.created_at;
 
     // En-tête : titre et numéro à gauche, dates à droite
-    doc.font('Helvetica-Bold').fontSize(22).fillColor('#000').text('FACTURE', LEFT, 50);
+    doc.font('Helvetica-Bold').fontSize(22).fillColor('#000').text(isCredit ? 'AVOIR' : 'FACTURE', LEFT, 50);
     doc.font('Helvetica').fontSize(10).fillColor(GRAY).text(`N° ${invoice.invoice_number}`, LEFT, 78);
+    if (isCredit && original) {
+      doc.text(`Relatif à la facture n° ${original.number} du ${formatDate(original.date)}`, LEFT, 92);
+    }
 
-    const dates = [`Date d'émission : ${formatDate(invoice.created_at)}`];
-    if (invoice.service_date) dates.push(`Date de la prestation : ${formatDate(invoice.service_date)}`);
-    dates.push(invoice.due_date ? `Date d'échéance : ${formatDate(invoice.due_date)}` : "Échéance : à réception de facture");
+    const dates = [`Date d'émission : ${formatDate(issueDate)}`];
+    if (!isCredit) {
+      if (invoice.service_date) dates.push(`Date de la prestation : ${formatDate(invoice.service_date)}`);
+      dates.push(invoice.due_date ? `Date d'échéance : ${formatDate(invoice.due_date)}` : "Échéance : à réception de facture");
+    }
     doc.font('Helvetica').fontSize(10).fillColor('#000').text(dates.join('\n'), 300, 50, { width: 245, align: 'right' });
 
     // Émetteur et client
     const top = 130;
     const sellerBottom = drawParty(doc, 'ÉMETTEUR', sellerBlock(seller), LEFT, top, 230);
-    const clientBottom = drawParty(doc, 'FACTURÉ À', clientBlock(client), 315, top, 230);
+    const clientBottom = drawParty(doc, isCredit ? 'CLIENT' : 'FACTURÉ À', clientBlock(client), 315, top, 230);
 
     doc.font('Helvetica').fontSize(9.5).fillColor('#333');
     doc.text("Nature de l'opération : prestation de services", LEFT, Math.max(sellerBottom, clientBottom) + 18, { width: WIDTH });
 
-    // Tableau (une ligne : la prestation)
+    // Tableau (une ligne : la prestation, ou le motif pour un avoir)
     const headerY = doc.y + 16;
     doc.rect(LEFT, headerY, WIDTH, 22).fill('#eeeeee');
     doc.fillColor('#000').font('Helvetica-Bold').fontSize(9);
@@ -113,13 +127,14 @@ function generateInvoicePdf({ invoice, seller, client }) {
     let rowBottom = rowY + titleHeight;
     if (invoice.description) {
       doc.font('Helvetica').fontSize(9).fillColor('#333');
-      doc.text(invoice.description, LEFT + 8, rowBottom + 3, { width: 260 });
+      const detail = isCredit ? `Motif : ${invoice.description}` : invoice.description;
+      doc.text(detail, LEFT + 8, rowBottom + 3, { width: 260 });
       rowBottom = doc.y;
     }
     doc.font('Helvetica').fontSize(10).fillColor('#000');
-    doc.text(money(htCents), 320, rowY, { width: 75, align: 'right' });
+    doc.text(money(sign * htCents), 320, rowY, { width: 75, align: 'right' });
     doc.text(isSubject ? `${String(rate).replace('.', ',')} %` : '—', 400, rowY, { width: 40, align: 'right' });
-    doc.text(money(ttcCents), 445, rowY, { width: 92, align: 'right' });
+    doc.text(money(sign * ttcCents), 445, rowY, { width: 92, align: 'right' });
 
     const lineY = rowBottom + 12;
     doc.moveTo(LEFT, lineY).lineTo(LEFT + WIDTH, lineY).strokeColor('#dddddd').stroke();
@@ -132,9 +147,9 @@ function generateInvoicePdf({ invoice, seller, client }) {
       doc.text(value, 440, y, { width: 97, align: 'right' });
       y += bold ? 20 : 16;
     };
-    totalRow('Total HT', money(htCents), false);
-    if (isSubject) totalRow(`TVA (${String(rate).replace('.', ',')} %)`, money(vatCents), false);
-    totalRow('Total TTC', money(ttcCents), true);
+    totalRow('Total HT', money(sign * htCents), false);
+    if (isSubject) totalRow(`TVA (${String(rate).replace('.', ',')} %)`, money(sign * vatCents), false);
+    totalRow('Total TTC', money(sign * ttcCents), true);
 
     // Mentions liées à la TVA
     doc.x = LEFT;
@@ -145,35 +160,43 @@ function generateInvoicePdf({ invoice, seller, client }) {
       doc.text("Option pour le paiement de la TVA d'après les débits.", LEFT, doc.y, { width: WIDTH });
     }
 
-    // Conditions de paiement
-    ensureSpace(doc, 120);
-    doc.moveDown(1.2);
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#000').text('Conditions de paiement', LEFT, doc.y, { width: WIDTH });
-    doc.font('Helvetica').fontSize(9).fillColor('#333');
-    doc.text(
-      invoice.due_date ? `Date d'échéance : ${formatDate(invoice.due_date)}.` : 'Paiement à réception de facture.',
-      LEFT, doc.y + 2, { width: WIDTH }
-    );
-    doc.text('Escompte pour paiement anticipé : néant.', LEFT, doc.y, { width: WIDTH });
-    doc.text(
-      "Pénalités de retard : 3 fois le taux d'intérêt légal, exigibles sans rappel. " +
-        'Indemnité forfaitaire pour frais de recouvrement en cas de retard de paiement (clients professionnels) : 40 €.',
-      LEFT, doc.y, { width: WIDTH }
-    );
+    if (isCredit) {
+      ensureSpace(doc, 50);
+      doc.moveDown(1.2);
+      const reference = original ? `la facture n° ${original.number}` : 'la facture d\'origine';
+      doc.text(`Cet avoir vient en déduction de ${reference}.`, LEFT, doc.y, { width: WIDTH });
+    } else {
+      // Conditions de paiement
+      ensureSpace(doc, 120);
+      doc.moveDown(1.2);
+      doc.font('Helvetica-Bold').fontSize(10).fillColor('#000').text('Conditions de paiement', LEFT, doc.y, { width: WIDTH });
+      doc.font('Helvetica').fontSize(9).fillColor('#333');
+      doc.text(
+        invoice.due_date ? `Date d'échéance : ${formatDate(invoice.due_date)}.` : 'Paiement à réception de facture.',
+        LEFT, doc.y + 2, { width: WIDTH }
+      );
+      doc.text('Escompte pour paiement anticipé : néant.', LEFT, doc.y, { width: WIDTH });
+      doc.text(
+        "Pénalités de retard : 3 fois le taux d'intérêt légal, exigibles sans rappel. " +
+          'Indemnité forfaitaire pour frais de recouvrement en cas de retard de paiement (clients professionnels) : 40 €.',
+        LEFT, doc.y, { width: WIDTH }
+      );
 
-    if (seller.paymentInfo) {
-      ensureSpace(doc, 60);
-      doc.moveDown(0.8);
-      doc.font('Helvetica-Bold').fontSize(10).fillColor('#000').text('Modalités de paiement', LEFT, doc.y, { width: WIDTH });
-      doc.font('Helvetica').fontSize(9).fillColor('#333').text(seller.paymentInfo, LEFT, doc.y + 2, { width: WIDTH });
+      if (seller.paymentInfo) {
+        ensureSpace(doc, 60);
+        doc.moveDown(0.8);
+        doc.font('Helvetica-Bold').fontSize(10).fillColor('#000').text('Modalités de paiement', LEFT, doc.y, { width: WIDTH });
+        doc.font('Helvetica').fontSize(9).fillColor('#333').text(seller.paymentInfo, LEFT, doc.y + 2, { width: WIDTH });
+      }
     }
+
     if (seller.legalNotes) {
       ensureSpace(doc, 50);
       doc.moveDown(0.8);
       doc.font('Helvetica').fontSize(8.5).fillColor(GRAY).text(seller.legalNotes, LEFT, doc.y, { width: WIDTH });
     }
 
-    if (invoice.status === 'paid' && invoice.paid_at) {
+    if (!isCredit && invoice.status === 'paid' && invoice.paid_at) {
       ensureSpace(doc, 30);
       doc.moveDown(1);
       doc.font('Helvetica-Bold').fontSize(10).fillColor('#0a7a3f').text(`Facture acquittée le ${formatDate(invoice.paid_at)}`, LEFT, doc.y, {

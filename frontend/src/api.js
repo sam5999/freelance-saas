@@ -95,6 +95,14 @@ export function deleteInvoice(id) {
   return request(`/invoices/${id}`, { method: 'DELETE' });
 }
 
+export function issueInvoice(id) {
+  return request(`/invoices/${id}/issue`, { method: 'POST' });
+}
+
+export function createCreditNote(id, payload) {
+  return request(`/invoices/${id}/credit-note`, { method: 'POST', body: JSON.stringify(payload) });
+}
+
 export function markInvoicePaid(id) {
   return request(`/invoices/${id}/mark-paid`, { method: 'POST' });
 }

@@ -95,3 +95,17 @@ ALTER TABLE invoices ADD COLUMN IF NOT EXISTS vat_rate NUMERIC(5,2) NOT NULL DEF
 ALTER TABLE invoices ADD COLUMN IF NOT EXISTS service_date DATE;
 ALTER TABLE invoices ADD COLUMN IF NOT EXISTS seller_info JSONB;
 ALTER TABLE invoices ADD COLUMN IF NOT EXISTS client_info JSONB;
+
+-- Brouillons, émission et avoirs
+-- status : draft (brouillon, sans numéro) | pending | paid (factures émises) | issued (avoirs)
+-- type   : invoice | credit_note (avoir, qui référence la facture d'origine)
+ALTER TABLE invoices ALTER COLUMN invoice_number DROP NOT NULL;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS type VARCHAR(20) NOT NULL DEFAULT 'invoice';
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS credited_invoice_id INTEGER REFERENCES invoices(id);
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS issued_at TIMESTAMPTZ;
+UPDATE invoices SET issued_at = created_at WHERE issued_at IS NULL AND status IN ('pending', 'paid');
+CREATE INDEX IF NOT EXISTS idx_invoices_credited ON invoices(credited_invoice_id);
+
+-- Garde-fou : un document émis a toujours un numéro.
+ALTER TABLE invoices DROP CONSTRAINT IF EXISTS invoices_number_when_issued;
+ALTER TABLE invoices ADD CONSTRAINT invoices_number_when_issued CHECK (status = 'draft' OR invoice_number IS NOT NULL);

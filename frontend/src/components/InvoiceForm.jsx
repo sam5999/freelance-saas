@@ -8,23 +8,28 @@ function formatRate(rate) {
 
 export default function InvoiceForm({ clients, agreements, profile, initialValues, onSubmit, onCancel }) {
   const isEditing = Boolean(initialValues);
-  const [form, setForm] = useState(
-    initialValues || {
+  // Le taux de TVA n'est proposé que si le freelance est assujetti à la TVA.
+  const showVat = profile?.vatRegime === 'subject';
+  const defaultRate = profile?.defaultVatRate ?? 20;
+  const [form, setForm] = useState(() => {
+    if (initialValues) {
+      // Un brouillon créé avant un changement de régime peut avoir un taux qui n'est plus proposé.
+      const rate = VAT_RATES.includes(Number(initialValues.vatRate)) ? Number(initialValues.vatRate) : defaultRate;
+      return { ...initialValues, vatRate: rate };
+    }
+    return {
       agreementId: '',
       clientId: '',
       title: '',
       description: '',
       amount: '',
-      vatRate: profile?.defaultVatRate ?? 20,
+      vatRate: defaultRate,
       serviceDate: '',
       dueDate: '',
-    }
-  );
+    };
+  });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-
-  // Le taux de TVA n'est proposé que si le freelance est assujetti à la TVA.
-  const showVat = (isEditing ? initialValues.vatRegime : profile?.vatRegime) === 'subject';
   const ht = Number(form.amount) || 0;
   const rate = showVat ? Number(form.vatRate) : 0;
   const ttc = Math.round(ht * (1 + rate / 100) * 100) / 100;
@@ -159,7 +164,7 @@ export default function InvoiceForm({ clients, agreements, profile, initialValue
       </label>
       <div className="form-actions">
         <button type="submit" disabled={submitting}>
-          {submitting ? 'Enregistrement...' : 'Enregistrer'}
+          {submitting ? 'Enregistrement...' : 'Enregistrer le brouillon'}
         </button>
         <button type="button" className="secondary" onClick={onCancel}>
           Annuler

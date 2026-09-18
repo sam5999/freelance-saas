@@ -216,6 +216,16 @@ button.link.danger {
   color: #0a8a4f;
 }
 
+.badge-cancelled {
+  background: rgba(211, 51, 51, 0.15);
+  color: #d33;
+}
+
+.badge-credit {
+  background: rgba(70, 110, 220, 0.15);
+  color: #4a6fdc;
+}
+
 .info {
   color: #0a8a4f;
   font-size: 14px;

@@ -13,8 +13,18 @@ router.get('/summary', asyncHandler(async (req, res) => {
     pool.query('SELECT COUNT(*) FROM clients WHERE user_id = $1', [req.userId]),
     pool.query('SELECT status, COUNT(*) FROM agreements WHERE user_id = $1 GROUP BY status', [req.userId]),
     pool.query(
-      `SELECT status, COUNT(*) AS count, COALESCE(SUM(ROUND(amount * (1 + vat_rate / 100), 2)), 0) AS total
-       FROM invoices WHERE user_id = $1 GROUP BY status`,
+      // Factures émises uniquement (ni brouillons, ni avoirs), après déduction des avoirs :
+      // une facture entièrement annulée ne compte plus, une facture créditée en partie compte pour le reste dû.
+      `SELECT i.status, COUNT(*) AS count,
+              COALESCE(SUM(ROUND(i.amount * (1 + i.vat_rate / 100), 2) - COALESCE(cr.credit_ttc, 0)), 0) AS total
+       FROM invoices i
+       LEFT JOIN LATERAL (
+         SELECT SUM(x.amount) AS credit_ht, SUM(ROUND(x.amount * (1 + x.vat_rate / 100), 2)) AS credit_ttc
+         FROM invoices x WHERE x.credited_invoice_id = i.id AND x.type = 'credit_note'
+       ) cr ON true
+       WHERE i.user_id = $1 AND i.type = 'invoice' AND i.status IN ('pending', 'paid')
+         AND COALESCE(cr.credit_ht, 0) < i.amount
+       GROUP BY i.status`,
       [req.userId]
     ),
   ]);

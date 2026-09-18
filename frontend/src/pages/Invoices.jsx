@@ -2,6 +2,15 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import * as api from '../api';
 import InvoiceForm from '../components/InvoiceForm';
+import CreditNoteForm from '../components/CreditNoteForm';
+
+function statusBadge(row) {
+  if (row.type === 'credit_note') return { className: 'badge-credit', label: 'Avoir' };
+  if (row.status === 'draft') return { className: 'badge-draft', label: 'Brouillon' };
+  if (row.cancelled) return { className: 'badge-cancelled', label: 'Annulée' };
+  if (row.status === 'paid') return { className: 'badge-confirmed', label: 'Payée' };
+  return { className: 'badge-sent', label: 'En attente' };
+}
 
 export default function Invoices() {
   const [invoices, setInvoices] = useState([]);
@@ -11,16 +20,17 @@ export default function Invoices() {
   const [missingFields, setMissingFields] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState(null);
   const [editingId, setEditingId] = useState(null);
+  const [creditFor, setCreditFor] = useState(null);
 
   useEffect(() => {
     loadData();
   }, []);
 
   async function loadData() {
-    setLoading(true);
     try {
       const [invoicesData, clientsData, agreementsData, profileData] = await Promise.all([
         api.listInvoices(),
@@ -40,9 +50,23 @@ export default function Invoices() {
     }
   }
 
+  // Exécute une action, affiche l'erreur éventuelle, puis recharge la liste.
+  async function run(action, successMessage) {
+    setError('');
+    setMessage('');
+    try {
+      await action();
+      await loadData();
+      if (successMessage) setMessage(successMessage);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   function openAddForm() {
     setEditingInvoice(null);
     setEditingId(null);
+    setCreditFor(null);
     setShowForm(true);
   }
 
@@ -52,11 +76,11 @@ export default function Invoices() {
       description: invoice.description,
       amount: invoice.amount,
       vatRate: Number(invoice.vat_rate),
-      vatRegime: invoice.vat_regime,
       serviceDate: invoice.service_date,
       dueDate: invoice.due_date,
     });
     setEditingId(invoice.id);
+    setCreditFor(null);
     setShowForm(true);
   }
 
@@ -68,41 +92,52 @@ export default function Invoices() {
 
   async function handleSubmit(values) {
     if (editingId) {
-      const data = await api.updateInvoice(editingId, values);
-      setInvoices((prev) => prev.map((i) => (i.id === editingId ? { ...i, ...data.invoice } : i)));
+      await api.updateInvoice(editingId, values);
     } else {
       await api.createInvoice(values);
-      await loadData();
     }
+    await loadData();
     closeForm();
   }
 
-  async function handleDelete(invoice) {
-    if (!window.confirm(`Supprimer la facture ${invoice.invoice_number} ?`)) return;
-    setError('');
-    try {
-      await api.deleteInvoice(invoice.id);
-      setInvoices((prev) => prev.filter((i) => i.id !== invoice.id));
-    } catch (err) {
-      setError(err.message);
-    }
+  function handleDelete(invoice) {
+    if (!window.confirm('Supprimer ce brouillon ?')) return;
+    run(() => api.deleteInvoice(invoice.id));
   }
 
-  async function togglePaid(invoice) {
-    setError('');
-    try {
-      const data =
-        invoice.status === 'paid' ? await api.markInvoicePending(invoice.id) : await api.markInvoicePaid(invoice.id);
-      setInvoices((prev) => prev.map((i) => (i.id === invoice.id ? { ...i, ...data.invoice } : i)));
-    } catch (err) {
-      setError(err.message);
-    }
+  function handleIssue(invoice) {
+    const ok = window.confirm(
+      'Émettre cette facture ?\n\nUn numéro définitif lui sera attribué. Elle ne pourra plus être modifiée ni supprimée : ' +
+        'en cas d\'erreur, il faudra créer un avoir.'
+    );
+    if (!ok) return;
+    run(() => api.issueInvoice(invoice.id), 'Facture émise.');
   }
 
-  const pending = invoices.filter((i) => i.status === 'pending');
-  const paid = invoices.filter((i) => i.status === 'paid');
-  const pendingTotal = pending.reduce((sum, i) => sum + Number(i.total_ttc), 0);
-  const paidTotal = paid.reduce((sum, i) => sum + Number(i.total_ttc), 0);
+  function togglePaid(invoice) {
+    run(() => (invoice.status === 'paid' ? api.markInvoicePending(invoice.id) : api.markInvoicePaid(invoice.id)));
+  }
+
+  async function handleCreditNote(values) {
+    await api.createCreditNote(creditFor.id, values);
+    await loadData();
+    setCreditFor(null);
+    setMessage('Avoir émis.');
+  }
+
+  function openCreditForm(invoice) {
+    setError('');
+    setMessage('');
+    closeForm();
+    setCreditFor(invoice);
+  }
+
+  // Factures émises encore dues ou encaissées (les annulées et les avoirs sont exclus).
+  const live = invoices.filter((i) => i.type === 'invoice' && i.status !== 'draft' && !i.cancelled);
+  const pending = live.filter((i) => i.status === 'pending');
+  const paid = live.filter((i) => i.status === 'paid');
+  const pendingTotal = pending.reduce((sum, i) => sum + Number(i.net_ttc), 0);
+  const paidTotal = paid.reduce((sum, i) => sum + Number(i.net_ttc), 0);
 
   return (
     <div className="page">
@@ -112,6 +147,7 @@ export default function Invoices() {
       </header>
 
       {error && <p className="error">{error}</p>}
+      {message && <p className="info">{message}</p>}
 
       {!loading && (
         <div className="summary-row">
@@ -136,14 +172,12 @@ export default function Invoices() {
 
       {!loading && missingFields.length > 0 && (
         <p className="error">
-          Pour émettre une facture conforme, complète d'abord <Link to="/profile">ton profil</Link> :{' '}
-          {missingFields.join(', ')}.
+          Tu peux préparer des brouillons, mais pour émettre une facture conforme il faut d'abord compléter{' '}
+          <Link to="/profile">ton profil</Link> : {missingFields.join(', ')}.
         </p>
       )}
 
-      {!showForm && clients.length > 0 && missingFields.length === 0 && (
-        <button onClick={openAddForm}>+ Nouvelle facture</button>
-      )}
+      {!showForm && !creditFor && clients.length > 0 && <button onClick={openAddForm}>+ Nouvelle facture</button>}
 
       {showForm && (
         <InvoiceForm
@@ -153,6 +187,15 @@ export default function Invoices() {
           initialValues={editingInvoice}
           onSubmit={handleSubmit}
           onCancel={closeForm}
+        />
+      )}
+
+      {creditFor && (
+        <CreditNoteForm
+          invoice={creditFor}
+          remainingHt={Number(creditFor.amount) - Number(creditFor.credited_ht)}
+          onSubmit={handleCreditNote}
+          onCancel={() => setCreditFor(null)}
         />
       )}
 
@@ -166,42 +209,69 @@ export default function Invoices() {
             <tr>
               <th>Numéro</th>
               <th>Client</th>
-              <th>Titre</th>
+              <th>Désignation</th>
               <th>Total TTC</th>
               <th>Statut</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {invoices.map((invoice) => (
-              <tr key={invoice.id}>
-                <td>{invoice.invoice_number}</td>
-                <td>{invoice.client_name}</td>
-                <td>{invoice.title}</td>
-                <td>{Number(invoice.total_ttc).toFixed(2)} €</td>
-                <td>
-                  <span className={`badge badge-${invoice.status === 'paid' ? 'confirmed' : 'sent'}`}>
-                    {invoice.status === 'paid' ? 'Payée' : 'En attente'}
-                  </span>
-                </td>
-                <td className="row-actions">
-                  <a className="link" href={api.invoicePdfUrl(invoice.id)} target="_blank" rel="noreferrer">
-                    PDF
-                  </a>
-                  {invoice.status === 'pending' && (
-                    <button className="link" onClick={() => openEditForm(invoice)}>
-                      Modifier
-                    </button>
-                  )}
-                  <button className="link" onClick={() => togglePaid(invoice)}>
-                    {invoice.status === 'paid' ? 'Marquer en attente' : 'Marquer payée'}
-                  </button>
-                  <button className="link danger" onClick={() => handleDelete(invoice)}>
-                    Supprimer
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {invoices.map((invoice) => {
+              const badge = statusBadge(invoice);
+              const isCredit = invoice.type === 'credit_note';
+              const isDraft = invoice.status === 'draft';
+              const remainingHt = Number(invoice.amount) - Number(invoice.credited_ht);
+              return (
+                <tr key={invoice.id}>
+                  <td>{invoice.invoice_number || '—'}</td>
+                  <td>{invoice.client_name}</td>
+                  <td>{invoice.title}</td>
+                  <td>
+                    {isCredit ? '-' : ''}
+                    {Number(invoice.total_ttc).toFixed(2)} €
+                  </td>
+                  <td>
+                    <span className={`badge ${badge.className}`}>{badge.label}</span>
+                    {!isCredit && !isDraft && !invoice.cancelled && Number(invoice.credited_ht) > 0 && (
+                      <div className="muted" style={{ fontSize: 12 }}>
+                        Avoirs : -{Number(invoice.credited_ht).toFixed(2)} € HT
+                      </div>
+                    )}
+                  </td>
+                  <td className="row-actions">
+                    {isDraft ? (
+                      <>
+                        <button className="link" onClick={() => openEditForm(invoice)}>
+                          Modifier
+                        </button>
+                        <button className="link" onClick={() => handleIssue(invoice)}>
+                          Émettre
+                        </button>
+                        <button className="link danger" onClick={() => handleDelete(invoice)}>
+                          Supprimer
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <a className="link" href={api.invoicePdfUrl(invoice.id)} target="_blank" rel="noreferrer">
+                          PDF
+                        </a>
+                        {!isCredit && !invoice.cancelled && (
+                          <button className="link" onClick={() => togglePaid(invoice)}>
+                            {invoice.status === 'paid' ? 'Marquer en attente' : 'Marquer payée'}
+                          </button>
+                        )}
+                        {!isCredit && remainingHt > 0 && (
+                          <button className="link danger" onClick={() => openCreditForm(invoice)}>
+                            Créer un avoir
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}
