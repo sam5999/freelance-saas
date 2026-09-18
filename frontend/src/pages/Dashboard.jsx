@@ -3,9 +3,15 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import * as api from '../api';
 
+function daysLeft(dateString) {
+  const diffMs = new Date(dateString).getTime() - Date.now();
+  return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+}
+
 export default function Dashboard() {
   const { user, logout } = useAuth();
   const [summary, setSummary] = useState(null);
+  const [subscription, setSubscription] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -13,6 +19,7 @@ export default function Dashboard() {
       .getDashboardSummary()
       .then(setSummary)
       .catch((err) => setError(err.message));
+    api.getSubscriptionStatus().then(setSubscription).catch(() => {});
   }, []);
 
   return (
@@ -23,10 +30,18 @@ export default function Dashboard() {
       </header>
       <p>Bienvenue {user?.fullName || user?.email} 👋</p>
 
+      {subscription?.status === 'trialing' && (
+        <p className="info">
+          Essai gratuit : {daysLeft(subscription.trialEndsAt)} jour(s) restant(s) —{' '}
+          <Link to="/subscribe">s'abonner maintenant</Link>
+        </p>
+      )}
+
       <nav className="dashboard-nav">
         <Link to="/clients">Mes clients</Link>
         <Link to="/agreements">Mes accords</Link>
         <Link to="/invoices">Mes factures</Link>
+        <Link to="/subscribe">Abonnement</Link>
       </nav>
 
       {error && <p className="error">{error}</p>}

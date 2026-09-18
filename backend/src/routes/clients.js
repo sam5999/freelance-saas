@@ -1,10 +1,12 @@
 const express = require('express');
 const pool = require('../db');
 const requireAuth = require('../middleware/auth');
+const { requireSubscription } = require('../middleware/subscription');
 const asyncHandler = require('../asyncHandler');
 
 const router = express.Router();
 router.use(requireAuth);
+router.use(requireSubscription);
 
 router.get('/', asyncHandler(async (req, res) => {
   const result = await pool.query(

@@ -2,11 +2,13 @@ const express = require('express');
 const crypto = require('crypto');
 const pool = require('../db');
 const requireAuth = require('../middleware/auth');
+const { requireSubscription } = require('../middleware/subscription');
 const asyncHandler = require('../asyncHandler');
 const { sendAgreementConfirmationEmail } = require('../email');
 
 const router = express.Router();
 router.use(requireAuth);
+router.use(requireSubscription);
 
 router.get('/', asyncHandler(async (req, res) => {
   const result = await pool.query(

@@ -9,6 +9,10 @@ async function request(path, options = {}) {
 
   const data = res.status === 204 ? null : await res.json();
 
+  if (res.status === 402 && window.location.pathname !== '/subscribe') {
+    window.location.href = '/subscribe';
+  }
+
   if (!res.ok) {
     throw new Error(data?.message || 'Une erreur est survenue');
   }
@@ -105,4 +109,16 @@ export function invoicePdfUrl(id) {
 
 export function getDashboardSummary() {
   return request('/dashboard/summary');
+}
+
+export function getSubscriptionStatus() {
+  return request('/subscription/status');
+}
+
+export function startCheckout() {
+  return request('/subscription/checkout', { method: 'POST' });
+}
+
+export function openBillingPortal() {
+  return request('/subscription/portal', { method: 'POST' });
 }

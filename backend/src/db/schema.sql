@@ -4,8 +4,20 @@ CREATE TABLE IF NOT EXISTS users (
   email VARCHAR(255) UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
   full_name VARCHAR(255),
+  stripe_customer_id TEXT,
+  stripe_subscription_id TEXT,
+  subscription_status VARCHAR(20) NOT NULL DEFAULT 'trialing', -- trialing | active | past_due | canceled
+  trial_ends_at TIMESTAMPTZ NOT NULL DEFAULT (now() + interval '14 days'),
+  current_period_end TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Ajoute les colonnes d'abonnement si la table "users" existait déjà (avant l'étape 6)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(20) NOT NULL DEFAULT 'trialing';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ NOT NULL DEFAULT (now() + interval '14 days');
+ALTER TABLE users ADD COLUMN IF NOT EXISTS current_period_end TIMESTAMPTZ;
 
 -- Table des clients de chaque freelance
 CREATE TABLE IF NOT EXISTS clients (

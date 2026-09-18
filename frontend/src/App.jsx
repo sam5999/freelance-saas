@@ -9,6 +9,7 @@ import Clients from './pages/Clients';
 import Agreements from './pages/Agreements';
 import ConfirmAgreement from './pages/ConfirmAgreement';
 import Invoices from './pages/Invoices';
+import Subscribe from './pages/Subscribe';
 
 function App() {
   return (
@@ -48,6 +49,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Invoices />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/subscribe"
+            element={
+              <ProtectedRoute>
+                <Subscribe />
               </ProtectedRoute>
             }
           />

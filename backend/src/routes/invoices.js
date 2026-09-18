@@ -1,11 +1,13 @@
 const express = require('express');
 const pool = require('../db');
 const requireAuth = require('../middleware/auth');
+const { requireSubscription } = require('../middleware/subscription');
 const asyncHandler = require('../asyncHandler');
 const { generateInvoicePdf } = require('../pdf');
 
 const router = express.Router();
 router.use(requireAuth);
+router.use(requireSubscription);
 
 async function nextInvoiceNumber(userId) {
   const { rows } = await pool.query('SELECT COUNT(*) FROM invoices WHERE user_id = $1', [userId]);

@@ -9,13 +9,21 @@ const agreementsRoutes = require('./routes/agreements');
 const agreementsPublicRoutes = require('./routes/agreementsPublic');
 const invoicesRoutes = require('./routes/invoices');
 const dashboardRoutes = require('./routes/dashboard');
+const subscriptionRoutes = require('./routes/subscription');
+const subscriptionWebhookRoutes = require('./routes/subscriptionWebhook');
 
 const app = express();
 app.use(cors({ origin: process.env.FRONTEND_URL, credentials: true }));
+
+// Le webhook Stripe a besoin du corps de requête brut (non transformé en JSON)
+// pour pouvoir vérifier la signature. Il doit donc être branché AVANT express.json().
+app.use('/api/subscription/webhook', express.raw({ type: 'application/json' }), subscriptionWebhookRoutes);
+
 app.use(express.json());
 app.use(cookieParser());
 
 app.use('/api/auth', authRoutes);
+app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/clients', clientsRoutes);
 app.use('/api/agreements', agreementsRoutes);
 app.use('/api/public/agreements', agreementsPublicRoutes);
