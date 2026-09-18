@@ -13,9 +13,10 @@ export default function Dashboard() {
       <p>Bienvenue {user?.fullName || user?.email} 👋</p>
       <nav className="dashboard-nav">
         <Link to="/clients">Mes clients</Link>
+        <Link to="/agreements">Mes accords</Link>
       </nav>
       <p className="muted">
-        Les accords et factures arriveront ici dans les prochaines étapes.
+        Les factures arriveront ici dans les prochaines étapes.
       </p>
     </div>
   );

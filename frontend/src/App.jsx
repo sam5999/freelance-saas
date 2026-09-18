@@ -5,6 +5,8 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Clients from './pages/Clients';
+import Agreements from './pages/Agreements';
+import ConfirmAgreement from './pages/ConfirmAgreement';
 
 function App() {
   return (
@@ -14,6 +16,7 @@ function App() {
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/confirm/:token" element={<ConfirmAgreement />} />
           <Route
             path="/dashboard"
             element={
@@ -27,6 +30,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Clients />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/agreements"
+            element={
+              <ProtectedRoute>
+                <Agreements />
               </ProtectedRoute>
             }
           />

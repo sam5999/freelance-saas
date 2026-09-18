@@ -46,3 +46,31 @@ export function updateClient(id, payload) {
 export function deleteClient(id) {
   return request(`/clients/${id}`, { method: 'DELETE' });
 }
+
+export function listAgreements() {
+  return request('/agreements');
+}
+
+export function createAgreement(payload) {
+  return request('/agreements', { method: 'POST', body: JSON.stringify(payload) });
+}
+
+export function updateAgreement(id, payload) {
+  return request(`/agreements/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+}
+
+export function deleteAgreement(id) {
+  return request(`/agreements/${id}`, { method: 'DELETE' });
+}
+
+export function sendAgreement(id) {
+  return request(`/agreements/${id}/send`, { method: 'POST' });
+}
+
+export function getPublicAgreement(token) {
+  return request(`/public/agreements/${token}`);
+}
+
+export function confirmPublicAgreement(token) {
+  return request(`/public/agreements/${token}/confirm`, { method: 'POST' });
+}
